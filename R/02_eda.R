@@ -1,4 +1,5 @@
-# 02_eda.R — Exploratory analysis of EU NUTS-2 regional development data
+# 02_eda.R
+# Grafici iniziali per capire quanto le classi si separano.
 
 library(dplyr)
 library(ggplot2)
@@ -21,7 +22,7 @@ class_colors <- c(meno_sviluppata = "#d73027",
                   transizione     = "#fee08b",
                   piu_sviluppata  = "#1a9850")
 
-# ── Boxplots per predictor × class ──────────────────────────────────────────
+# Distribuzione degli indicatori per classe.
 long <- train %>%
   select(dev_class, names(pred_labels)) %>%
   pivot_longer(-dev_class, names_to = "variable", values_to = "value") %>%
@@ -39,7 +40,7 @@ p_box <- ggplot(long, aes(dev_class, value, fill = dev_class)) +
   theme(strip.text = element_text(size = 8))
 ggsave("figures/boxplots.png", p_box, width = 8, height = 5, dpi = 150)
 
-# ── Scatter: disoccupazione vs istruzione, colorato per classe ────────────────
+# Due variabili facili da leggere anche a colpo d'occhio.
 p_scatter <- ggplot(train, aes(unemp_rate, educ_tertiary, color = dev_class)) +
   geom_point(size = 2, alpha = 0.8) +
   scale_color_manual(values = class_colors,
@@ -51,12 +52,12 @@ p_scatter <- ggplot(train, aes(unemp_rate, educ_tertiary, color = dev_class)) +
   theme_minimal()
 ggsave("figures/scatter_unemp_educ.png", p_scatter, width = 7, height = 4.5, dpi = 150)
 
-# ── Correlation matrix ────────────────────────────────────────────────────────
+# Correlazioni tra predittori.
 cor_mat <- train %>%
   select(names(pred_labels)) %>%
   cor(use = "complete.obs")
 
-# Save as CSV for report
+# File di appoggio per il report.
 write.csv(round(cor_mat, 3), "output/cor_matrix.csv")
 
 cat("EDA complete. Figures: boxplots.png, scatter_unemp_educ.png\n")
