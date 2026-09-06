@@ -31,7 +31,7 @@ La politica di coesione dell'UE classifica le regioni NUTS-2 in tre
 categorie — *meno sviluppate*, *in transizione* e *più sviluppate* — in base
 al PIL pro capite (PPS) rispetto alla media UE, e assegna i fondi strutturali
 di conseguenza. **Obiettivo:** costruire un modello di classificazione che
-predica questa categoria usando indicatori socioeconomici *diversi dal PIL*
+predica questa categoria usando indicatori socioeconomici *diversi dal livello di PIL pro capite*
 (disoccupazione, istruzione, R&S, occupazione high-tech, banda larga) e
 valutarne la capacità predittiva su dati non visti.
 
@@ -63,11 +63,11 @@ all_data$dev_class <- factor(all_data$dev_class, levels = lvls)
 vars <- data.frame(
   Variabile   = c("`unemp_rate`","`educ_tertiary`","`rnd_gdp_pct`",
                   "`hitech_emp_pct`","`broadband_pct`"),
-  Unità       = c("% forza lavoro","% pop. 25-64","% PIL","% occupati","% famiglie"),
+  Unita       = c("% forza lavoro","% pop. 25-64","% PIL","% occupati","% famiglie"),
   Descrizione = c("Tasso di disoccupazione","Istruzione terziaria",
                   "Spesa R\\&S","Occupazione high-tech","Accesso banda larga")
 )
-kable(vars, booktabs = TRUE,
+kable(vars, booktabs = TRUE, col.names = c("Variabile", "Unità", "Descrizione"),
       caption = "Predittori utilizzati (anno 2021, NUTS-2). Il PIL pro capite PPS definisce la classe e non è usato come predittore.")
 ```
 
@@ -83,15 +83,16 @@ preds <- c("unemp_rate","educ_tertiary","rnd_gdp_pct","hitech_emp_pct","broadban
 desc <- do.call(rbind, lapply(preds, function(v) {
   data.frame(
     Variabile = v,
-    `Meno sv.`  = round(median(all_data[[v]][all_data$dev_class=="meno_sviluppata"], na.rm=TRUE),1),
-    `Transiz.`  = round(median(all_data[[v]][all_data$dev_class=="transizione"],     na.rm=TRUE),1),
-    `Più sv.`   = round(median(all_data[[v]][all_data$dev_class=="piu_sviluppata"],  na.rm=TRUE),1),
+    Meno_sv  = round(median(all_data[[v]][all_data$dev_class=="meno_sviluppata"], na.rm=TRUE),1),
+    Transiz  = round(median(all_data[[v]][all_data$dev_class=="transizione"],     na.rm=TRUE),1),
+    Piu_sv   = round(median(all_data[[v]][all_data$dev_class=="piu_sviluppata"],  na.rm=TRUE),1),
     check.names = FALSE
   )
 }))
 desc$Variabile <- c("Disoccupazione (%)","Educ. terziaria (%)","R\\&S (% PIL)",
                     "High-tech (%)","Banda larga (%)")
 kable(desc, booktabs = TRUE, escape = FALSE, row.names = FALSE,
+      col.names = c("Variabile", "Meno sv.", "Transiz.", "Più sv."),
       caption = "Mediane dei predittori per categoria di sviluppo (dataset completo). Il gradiente tra classi è visibile per tutte le variabili tranne la disoccupazione, che distingue soprattutto la classe meno sviluppata.")
 ```
 
@@ -159,7 +160,7 @@ knitr::include_graphics("figures/lda_space.png")
 
 Con LDA si raggiunge un'accuratezza dell'**`r round(max(comp$Accuratezza)*100,1)`%**
 nel classificare le regioni NUTS-2 per categoria di sviluppo UE usando solo
-indicatori strutturali non-PIL. Il risultato principale è che la separazione
+indicatori strutturali diversi dal livello di PIL pro capite. Il risultato principale è che la separazione
 tra classi è approssimativamente lineare: disoccupazione, istruzione e
 digitalizzazione congiuntamente definiscono un profilo regionale coerente con
 la categoria di sviluppo assegnata dall'UE. La classe *transizione* rimane
@@ -170,6 +171,10 @@ che il divario strutturale dell'Europa orientale è profondo e multidimensionale
 **Implicazioni.** Il modello potrebbe monitorare la *convergenza reale*:
 una regione che migliora coerentemente in tutti gli indicatori strutturali
 si avvicina alla categoria superiore anche senza che il PIL venga misurato
-in tempo reale. **Limitazioni.** Il campione esclude le regioni con dati
-mancanti (principalmente piccole isole); l'analisi è cross-sezionale (2021)
-e non cattura la dinamica temporale della convergenza.
+in tempo reale. **Limitazioni.** Il campione è contenuto (`r nrow(all_data)`
+regioni), perché l'unità statistica NUTS-2 e la disponibilità congiunta degli
+indicatori riducono il numero di casi utilizzabili. Per questo i risultati
+vanno letti come evidenza predittiva esplorativa, non come modello definitivo
+di politica economica. Inoltre, il campione esclude le regioni con dati
+mancanti (principalmente piccole isole) e l'analisi è cross-sezionale (2021),
+quindi non cattura la dinamica temporale della convergenza.
