@@ -1,4 +1,5 @@
-# 04_evaluation.R — Plots and detailed evaluation of classification models
+# 04_evaluation.R
+# Grafici finali per confrontare i classificatori.
 
 library(ggplot2)
 library(dplyr)
@@ -11,7 +12,7 @@ results  <- readRDS("output/classification_results.rds")
 cv_res   <- read.csv("output/knn_cv_results.csv")
 lda_fit  <- readRDS("output/lda_fit.rds")
 
-# ── CV error curve for KNN ───────────────────────────────────────────────────
+# Curva dell'errore CV usata per scegliere K.
 best_K <- cv_res$K[which.min(cv_res$cv_error)]
 
 p_cv <- ggplot(cv_res, aes(K, cv_error)) +
@@ -25,7 +26,7 @@ p_cv <- ggplot(cv_res, aes(K, cv_error)) +
   theme_minimal()
 ggsave("figures/knn_cv_curve.png", p_cv, width = 6, height = 3.5, dpi = 150)
 
-# ── Confusion matrices as heatmaps ───────────────────────────────────────────
+# Matrici di confusione in formato più leggibile per il report.
 plot_cm <- function(cm_table, title) {
   df <- as.data.frame(cm_table)
   colnames(df) <- c("Predetto","Reale","N")
@@ -52,7 +53,7 @@ ggsave("figures/cm_knn.png", p_knn, width = 5, height = 4, dpi = 150)
 ggsave("figures/cm_lda.png", p_lda, width = 5, height = 4, dpi = 150)
 ggsave("figures/cm_qda.png", p_qda, width = 5, height = 4, dpi = 150)
 
-# ── LDA discriminant space plot (LD1 vs LD2) ─────────────────────────────────
+# Regioni nello spazio discriminante della LDA.
 train <- read.csv("data/regions_train.csv", stringsAsFactors = FALSE)
 predictors <- c("unemp_rate","educ_tertiary","rnd_gdp_pct","hitech_emp_pct","broadband_pct")
 X_sc <- scale(train[, predictors])

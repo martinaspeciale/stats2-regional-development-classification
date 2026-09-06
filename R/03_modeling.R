@@ -1,12 +1,11 @@
 # 03_modeling.R
-# Classification of EU NUTS-2 regions by development level.
-# Methods: KNN (K selected by 10-fold CV), LDA, QDA.
-# All hyperparameter selection is done on the training set only.
+# Tre metodi visti a lezione: KNN, LDA e QDA.
+# Il test set resta da parte fino alla valutazione finale.
 
 library(dplyr)
-library(class)   # knn()
-library(MASS)    # lda(), qda()
-library(caret)   # confusionMatrix()
+library(class)   # KNN
+library(MASS)    # LDA e QDA
+library(caret)   # matrice di confusione e indicatori
 
 set.seed(2026)
 
@@ -28,7 +27,7 @@ y_test  <- test$dev_class
 
 dir.create("output", showWarnings = FALSE)
 
-# ── 1. KNN — select K by 10-fold cross-validation ──────────────────────────
+# K di KNN scelto con cross-validation sul training set.
 K_cv   <- 10
 folds  <- sample(rep(1:K_cv, length.out = nrow(train)))
 K_grid <- 1:25
@@ -51,22 +50,22 @@ write.csv(cv_results, "output/knn_cv_results.csv", row.names = FALSE)
 best_K <- K_grid[which.min(cv_errors)]
 cat(sprintf("KNN — best K = %d  (CV error = %.3f)\n", best_K, min(cv_errors)))
 
-# Final KNN prediction on test set
+# Previsione KNN finale sul test set.
 knn_pred <- knn(X_train, X_test, y_train, k = best_K)
 
-# ── 2. LDA ────────────────────────────────────────────────────────────────────
+# LDA: separazione lineare tra le classi.
 lda_fit  <- lda(dev_class ~ ., data = data.frame(dev_class = y_train, X_train))
 lda_pred <- predict(lda_fit, newdata = data.frame(X_test))$class
 
-# ── 3. QDA ────────────────────────────────────────────────────────────────────
+# QDA: simile a LDA, ma con frontiere più flessibili.
 qda_fit  <- qda(dev_class ~ ., data = data.frame(dev_class = y_train, X_train))
 qda_pred <- predict(qda_fit, newdata = data.frame(X_test))$class
 
-# ── 4. Metrics ───────────────────────────────────────────────────────────────
+# Prestazioni ricavate dalla matrice di confusione.
 metrics <- function(pred, actual, name) {
   cm   <- confusionMatrix(pred, actual)
   acc  <- cm$overall["Accuracy"]
-  # Per-class sensitivity and specificity (macro average)
+  # Media sulle tre classi: non solo accuratezza totale.
   sens <- mean(cm$byClass[,"Sensitivity"], na.rm = TRUE)
   spec <- mean(cm$byClass[,"Specificity"], na.rm = TRUE)
   list(name = name, cm = cm, accuracy = acc, sensitivity = sens, specificity = spec)
