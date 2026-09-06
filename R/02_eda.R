@@ -15,7 +15,7 @@ pred_labels <- c(
   unemp_rate      = "Disoccupazione (%)",
   educ_tertiary   = "Istruzione terziaria (%)",
   rnd_gdp_pct     = "Spesa R&S (% PIL)",
-  hitech_emp_pct  = "Impiego high-tech (%)",
+  hitech_emp_pct  = "Impiego high-tech (% occupati)",
   broadband_pct   = "Banda larga famiglie (%)"
 )
 class_colors <- c(meno_sviluppata = "#d73027",

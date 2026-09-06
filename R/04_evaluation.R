@@ -53,6 +53,35 @@ ggsave("figures/cm_knn.png", p_knn, width = 5, height = 4, dpi = 150)
 ggsave("figures/cm_lda.png", p_lda, width = 5, height = 4, dpi = 150)
 ggsave("figures/cm_qda.png", p_qda, width = 5, height = 4, dpi = 150)
 
+cm_all <- bind_rows(
+  cbind(Modello = "KNN", as.data.frame(results$knn$cm$table)),
+  cbind(Modello = "LDA", as.data.frame(results$lda$cm$table)),
+  cbind(Modello = "QDA", as.data.frame(results$qda$cm$table))
+)
+colnames(cm_all) <- c("Modello", "Predetto", "Reale", "N")
+lvl_labels <- c("Meno sv.", "Transiz.", "Più sv.")
+cm_all$Predetto <- factor(cm_all$Predetto,
+  levels = c("meno_sviluppata","transizione","piu_sviluppata"),
+  labels = lvl_labels)
+cm_all$Reale <- factor(cm_all$Reale,
+  levels = c("meno_sviluppata","transizione","piu_sviluppata"),
+  labels = lvl_labels)
+cm_all$Modello <- factor(cm_all$Modello, levels = c("KNN", "LDA", "QDA"))
+
+p_cm_all <- ggplot(cm_all, aes(Reale, Predetto, fill = N)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = N), size = 3.8) +
+  facet_wrap(~Modello, nrow = 1) +
+  scale_fill_gradient(low = "white", high = "#2166ac", name = "N") +
+  labs(title = "Matrici di confusione sul test set",
+       x = "Classe reale", y = "Classe predetta") +
+  coord_equal() +
+  theme_minimal(base_size = 10) +
+  theme(axis.text.x = element_text(size = 8),
+        axis.text.y = element_text(size = 8),
+        strip.text = element_text(face = "bold"))
+ggsave("figures/cm_all.png", p_cm_all, width = 8.8, height = 3.4, dpi = 150)
+
 # Regioni nello spazio discriminante della LDA.
 train <- read.csv("data/regions_train.csv", stringsAsFactors = FALSE)
 predictors <- c("unemp_rate","educ_tertiary","rnd_gdp_pct","hitech_emp_pct","broadband_pct")
