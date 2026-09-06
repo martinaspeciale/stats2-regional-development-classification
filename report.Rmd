@@ -42,7 +42,7 @@ di conseguenza.
 - **Valutare** la capacità predittiva su regioni non usate nella stima.
 
 **Fonte.** Dati **Eurostat**, anno 2021, livello NUTS-2, accessibili via API.
-L'anno 2021 è usato perché, tra gli anni recenti controllati, è il più recente
+L'anno 2021 è usato perché, tra gli anni controllati, è il più recente
 con tutti gli indicatori disponibili nello stesso momento.
 
 Dataset di partenza:
@@ -138,7 +138,7 @@ knitr::include_graphics("figures/boxplots.png")
 
 **Lettura del grafico.** Istruzione terziaria, R&S e banda larga tendono a
 crescere nelle classi più sviluppate, mentre la disoccupazione tende a essere
-più bassa. Le scatole però si sovrappongono in tutte le variabili: nessun
+più bassa. I box però si sovrappongono in tutte le variabili: nessun
 predittore, da solo, separa perfettamente le tre classi.
 
 ```{r fig-scatter, out.width="70%", fig.cap="Disoccupazione vs istruzione terziaria per categoria. La separazione tra classi e parziale: le regioni meno sviluppate tendono verso disoccupazione piu alta e istruzione piu bassa, ma c'e sovrapposizione.", fig.height=3.0}
@@ -193,6 +193,12 @@ kable(comp, booktabs = TRUE, digits = 3,
       col.names = c("Modello","Accuratezza","Sensitività (macro)","Specificità (macro)"),
       caption = "Confronto dei classificatori sul test set (39 regioni). Metriche macro-mediate tra le tre classi.")
 ```
+
+Le metriche utilizzate sono:
+
+- **Accuratezza:** quota totale di regioni classificate correttamente.
+- **Sensitività (macro):** per ogni classe misura quante regioni vere di quella classe sono riconosciute; poi fa la media tra le tre classi.
+- **Specificità (macro):** per ogni classe misura quante regioni non appartenenti a quella classe sono escluse correttamente; poi fa la media tra le tre classi.
 
 Dal confronto emerge che:
 
