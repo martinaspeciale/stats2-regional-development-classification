@@ -20,6 +20,9 @@ header-includes:
 ---
 
 ```{r setup, include=FALSE}
+# Accenti puliti anche se R parte con locale "C" da terminale.
+try(Sys.setlocale("LC_CTYPE", "en_US.UTF-8"), silent = TRUE)
+
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
                       fig.align = "center", out.width = "95%")
 library(dplyr); library(ggplot2); library(knitr); library(caret)
@@ -30,20 +33,40 @@ library(dplyr); library(ggplot2); library(knitr); library(caret)
 La politica di coesione dell'UE classifica le regioni NUTS-2 in tre
 categorie — *meno sviluppate*, *in transizione* e *più sviluppate* — in base
 al PIL pro capite (PPS) rispetto alla media UE, e assegna i fondi strutturali
-di conseguenza. **Obiettivo:** costruire un modello di classificazione che
-predica questa categoria usando indicatori socioeconomici *diversi dal livello di PIL pro capite*
-(disoccupazione, istruzione, R&S, occupazione high-tech, banda larga) e
-valutarne la capacità predittiva su dati non visti.
+di conseguenza.
 
-**Fonte.** Dati **Eurostat**, anno 2021, livello NUTS-2, scaricati via API:
+**Obiettivo.**
 
-Dataset utilizzati: [tgs00006](https://ec.europa.eu/eurostat/databrowser/view/tgs00006/default/table?lang=en)
-(PIL PPS, definisce la classe),
-[tgs00010](https://ec.europa.eu/eurostat/databrowser/view/tgs00010/default/table?lang=en),
-[tgs00109](https://ec.europa.eu/eurostat/databrowser/view/tgs00109/default/table?lang=en),
-[tgs00042](https://ec.europa.eu/eurostat/databrowser/view/tgs00042/default/table?lang=en),
-[tgs00059](https://ec.europa.eu/eurostat/databrowser/view/tgs00059/default/table?lang=en),
-[isoc_r_broad_h](https://ec.europa.eu/eurostat/databrowser/view/isoc_r_broad_h/default/table?lang=en).
+- **Predire** la categoria di sviluppo con indicatori diversi dal livello di PIL pro capite.
+- **Confrontare** KNN, LDA e QDA sullo stesso training/test split.
+- **Valutare** la capacità predittiva su regioni non usate nella stima.
+
+**Fonte.** Dati **Eurostat**, anno 2021, livello NUTS-2, accessibili via API.
+L'anno 2021 è usato perché, tra gli anni recenti controllati, è il più recente
+con tutti gli indicatori disponibili nello stesso momento.
+
+Dataset di partenza:
+
+- **[tgs00006](https://ec.europa.eu/eurostat/databrowser/view/tgs00006/default/table?lang=en):** PIL pro capite PPS rispetto alla media UE; serve solo a definire la classe.
+- **[tgs00010](https://ec.europa.eu/eurostat/databrowser/view/tgs00010/default/table?lang=en):** tasso di disoccupazione.
+- **[tgs00109](https://ec.europa.eu/eurostat/databrowser/view/tgs00109/default/table?lang=en):** quota di popolazione adulta con istruzione terziaria.
+- **[tgs00042](https://ec.europa.eu/eurostat/databrowser/view/tgs00042/default/table?lang=en):** spesa in R&S in percentuale del PIL.
+- **[tgs00039](https://ec.europa.eu/eurostat/databrowser/view/tgs00039/default/table?lang=en):** occupazione nei settori high-tech, in percentuale degli occupati.
+- **[isoc_r_broad_h](https://ec.europa.eu/eurostat/databrowser/view/isoc_r_broad_h/default/table?lang=en):** famiglie con accesso a banda larga.
+
+Struttura dei dati:
+
+- **Dataset raw:** ogni indicatore nasce come tabella Eurostat separata, filtrata su anno 2021 e regioni NUTS-2.
+- **Unione:** le tabelle vengono unite con `inner_join` usando `geo`, il codice della regione.
+- **Risposta da predire:** dal PIL pro capite PPS (`gdp_pps_pct`) si crea
+  `dev_class`: sotto 75% = meno sviluppata, tra 75% e 100% = transizione,
+  sopra 100% = più sviluppata.
+- **Dataset finale:** una riga per regione, con `geo`, `country`, `region`,
+  `dev_class` e i cinque predittori. Dopo aver creato la classe, il PIL viene
+  escluso dai dati usati dai modelli.
+- **Anni più recenti:** 2022, 2023, 2024 e 2025 non danno lo stesso dataset
+  completo, perché manca almeno uno degli indicatori selezionati.
+
 Il codice R completo è allegato come file separato (`R/01_load_data.R` – `R/04_evaluation.R`).
 
 # I Dati
@@ -71,12 +94,15 @@ kable(vars, booktabs = TRUE, col.names = c("Variabile", "Unità", "Descrizione")
       caption = "Predittori utilizzati (anno 2021, NUTS-2). Il PIL pro capite PPS definisce la classe e non è usato come predittore.")
 ```
 
-Il dataset comprende **`r nrow(all_data)` regioni NUTS-2** di 23 paesi UE,
-suddivise in: `r sum(all_data$dev_class=="meno_sviluppata")` meno sviluppate,
-`r sum(all_data$dev_class=="transizione")` in transizione,
-`r sum(all_data$dev_class=="piu_sviluppata")` più sviluppate (classi quasi
-bilanciate). Partizione: 75% training (`r nrow(train)`) / 25% test
-(`r nrow(test)`), seme `set.seed(2026)`.
+Il dataset comprende:
+
+- **`r nrow(all_data)` regioni NUTS-2** di 23 paesi UE.
+- **Classi:** `r sum(all_data$dev_class=="meno_sviluppata")` meno sviluppate,
+  `r sum(all_data$dev_class=="transizione")` in transizione,
+  `r sum(all_data$dev_class=="piu_sviluppata")` più sviluppate.
+- **Partizione:** 75% training (`r nrow(train)`) / 25% test
+  (`r nrow(test)`). Nel codice il seed è fissato a `2026` per rendere
+  riproducibile la divisione.
 
 ```{r desc-stats}
 preds <- c("unemp_rate","educ_tertiary","rnd_gdp_pct","hitech_emp_pct","broadband_pct")
@@ -90,32 +116,55 @@ desc <- do.call(rbind, lapply(preds, function(v) {
   )
 }))
 desc$Variabile <- c("Disoccupazione (%)","Educ. terziaria (%)","R\\&S (% PIL)",
-                    "High-tech (%)","Banda larga (%)")
+                    "High-tech (% occupati)","Banda larga (%)")
 kable(desc, booktabs = TRUE, escape = FALSE, row.names = FALSE,
       col.names = c("Variabile", "Meno sv.", "Transiz.", "Più sv."),
-      caption = "Mediane dei predittori per categoria di sviluppo (dataset completo). Il gradiente tra classi è visibile per tutte le variabili tranne la disoccupazione, che distingue soprattutto la classe meno sviluppata.")
+      caption = "Mediane dei predittori per categoria di sviluppo (dataset completo). La tabella confronta i valori centrali delle tre classi, senza assumere che ogni variabile separi bene tutte le categorie.")
 ```
+
+Lettura delle mediane:
+
+- **Istruzione, R&S e high-tech:** valori centrali più alti nelle regioni più sviluppate.
+- **Banda larga:** differenze contenute, perché l'accesso è già alto in quasi tutte le regioni.
+- **Disoccupazione:** più bassa nelle regioni più sviluppate, ma la transizione resta vicina alla classe meno sviluppata.
 
 ```{r eda, results='hide'}
 source("R/02_eda.R")
 ```
 
-```{r fig-box, fig.cap="Distribuzione dei predittori per categoria di sviluppo (training set). Le regioni meno sviluppate mostrano disoccupazione elevata e bassi livelli di istruzione, R\\&S e digitalizzazione. La classe transizione ha posizione intermedia con ampia sovrapposizione.", fig.height=3.2}
+```{r fig-box, fig.cap="Distribuzione dei predittori per categoria di sviluppo (training set). Il grafico confronta la distribuzione dei cinque predittori nelle tre classi: si vedono differenze nei valori mediani, ma anche sovrapposizione tra categorie.", fig.height=3.2}
 knitr::include_graphics("figures/boxplots.png")
 ```
 
-```{r fig-scatter, out.width="70%", fig.cap="Disoccupazione vs istruzione terziaria per categoria. La separazione tra meno sviluppate (rosso) e più sviluppate (verde) è netta; la transizione (giallo) si sovrappone a entrambe, motivando l'uso di classificatori multivariati.", fig.height=3.0}
+**Lettura del grafico.** Istruzione terziaria, R&S e banda larga tendono a
+crescere nelle classi più sviluppate, mentre la disoccupazione tende a essere
+più bassa. Le scatole però si sovrappongono in tutte le variabili: nessun
+predittore, da solo, separa perfettamente le tre classi.
+
+```{r fig-scatter, out.width="70%", fig.cap="Disoccupazione vs istruzione terziaria per categoria. La separazione tra classi e parziale: le regioni meno sviluppate tendono verso disoccupazione piu alta e istruzione piu bassa, ma c'e sovrapposizione.", fig.height=3.0}
 knitr::include_graphics("figures/scatter_unemp_educ.png")
 ```
 
+**Lettura del grafico.** Le regioni meno sviluppate si concentrano su bassa
+istruzione e disoccupazione più alta; le più sviluppate hanno profilo opposto.
+La classe di transizione resta nella zona centrale e si sovrappone alle altre.
+
 # Metodi e Selezione del Modello
 
-Vengono applicati tre classificatori: **KNN** (non parametrico), **LDA**
-(frontiere lineari, covarianza comune) e **QDA** (frontiere quadratiche,
-covarianza per classe). Tutti i predittori sono standardizzati (z-score)
-prima della classificazione. Il parametro $K$ di KNN è selezionato tramite
-**convalida incrociata a 10 gruppi** sul solo training set, senza mai
-coinvolgere il test set.
+Vengono applicati tre classificatori:
+
+- **KNN:** metodo non parametrico, basato sulle regioni più vicine.
+- **LDA:** frontiere lineari e matrice di covarianza comune.
+- **QDA:** frontiere quadratiche e covarianza stimata per classe.
+
+Prima della classificazione:
+
+- **Standardizzazione:** tutti i predittori sono portati a z-score.
+- **Scelta di KNN:** si provano i valori `K = 1, ..., 25`.
+- **CV:** convalida incrociata a 10 fold sul solo training set; i 10 fold sono
+  i gruppi della CV, mentre `K` è il numero di vicini del KNN.
+- **Test set:** usato solo alla fine, dopo aver scelto `K` e stimato i modelli,
+  per misurare la previsione su dati non usati nelle decisioni precedenti.
 
 ```{r modeling, results='hide'}
 source("R/03_modeling.R")
@@ -125,56 +174,72 @@ source("R/03_modeling.R")
 source("R/04_evaluation.R")
 ```
 
-```{r fig-cv, out.width="65%", fig.cap="Errore CV a 10 gruppi per KNN al variare di K. Il minimo è in K=12. La curva illustra il dilemma bias-varianza: K piccoli (alta varianza) e K grandi (alto bias) producono entrambi errori elevati.", fig.height=2.8}
+```{r fig-cv, out.width="65%", fig.cap="Errore CV a 10 fold per KNN al variare del numero di vicini. La curva non e monotona: oscilla tra i diversi valori di K; il valore scelto e indicato dalla linea rossa.", fig.height=2.8}
 knitr::include_graphics("figures/knn_cv_curve.png")
 ```
+
+**Lettura del grafico.** La linea mostra l'errore medio di validazione per
+ciascun numero di vicini. K=`r best_K` è scelto perché ha l'errore medio più basso,
+anche se i valori vicini non seguono un andamento perfettamente regolare.
 
 # Risultati
 
 ```{r comparison}
 comp <- read.csv("output/model_comparison.csv")
+test_n <- nrow(test)
+best_correct <- round(max(comp$Accuratezza) * test_n)
+baseline_acc <- max(table(test$dev_class)) / test_n
 kable(comp, booktabs = TRUE, digits = 3,
       col.names = c("Modello","Accuratezza","Sensitività (macro)","Specificità (macro)"),
       caption = "Confronto dei classificatori sul test set (39 regioni). Metriche macro-mediate tra le tre classi.")
 ```
 
-**LDA** ottiene la migliore accuratezza (**`r round(max(comp$Accuratezza)*100,1)`%**),
-superando QDA (`r round(comp$Accuratezza[comp$Modello=="QDA"]*100,1)`%) e KNN
-(`r round(comp$Accuratezza[comp$Modello=="KNN"]*100,1)`%). Questo indica che
-le classi sono linearmente separabili nello spazio dei predittori: la
-politica UE che definisce soglie lineari sul PIL si riflette in una struttura
-altrettanto lineare negli indicatori strutturali. La maggiore flessibilità
-di QDA non compensa il costo in varianza con questo campione. KNN soffre
-della maledizione della dimensionalità con soli 116 osservazioni in 5
-dimensioni.
+Dal confronto emerge che:
 
-```{r fig-cms, fig.show='hold', out.width='33%', fig.cap="Matrici di confusione sul test set: KNN (sinistra), LDA (centro), QDA (destra). La classe transizione è la più difficile in tutti i modelli — è per definizione la categoria intermedia. Le regioni meno sviluppate sono classificate quasi perfettamente da LDA e QDA (profilo strutturale distinto dell'Europa orientale).", fig.height=3.2}
-knitr::include_graphics(c("figures/cm_knn.png","figures/cm_lda.png","figures/cm_qda.png"))
+- **Miglior modello:** QDA, con accuratezza
+  **`r round(max(comp$Accuratezza)*100,1)`%** sul test set
+  (`r best_correct` regioni corrette su `r test_n`).
+- **Confronto base:** scegliere sempre la classe più frequente del test avrebbe
+  accuratezza circa **`r round(baseline_acc*100,1)`%**, quindi QDA migliora
+  nettamente rispetto a una regola banale.
+- **QDA:** usa frontiere quadratiche, quindi riesce a catturare una separazione
+  meno lineare tra le classi.
+- **LDA:** resta competitivo, ma la frontiera lineare perde alcuni casi della
+  classe di transizione.
+- **KNN:** più debole in 5 dimensioni con soli 116 casi di training.
+- **Interpretazione:** le classi sono separabili, ma non in modo perfettamente
+  lineare nello spazio degli indicatori strutturali.
+
+```{r fig-cms, out.width='95%', fig.cap="Matrici di confusione sul test set per KNN, LDA e QDA. Ogni pannello confronta classe reale e classe predetta; i valori sulla diagonale sono le classificazioni corrette.", fig.height=3.2}
+knitr::include_graphics("figures/cm_all.png")
 ```
 
-```{r fig-lda, out.width="72%", fig.cap="Spazio discriminante LDA (training set). LD1 separa le regioni meno sviluppate da quelle più sviluppate; LD2 differenzia la classe di transizione.", fig.height=3.0}
+**Lettura del grafico.** La diagonale indica le classificazioni corrette. QDA
+ha la diagonale più piena, soprattutto sulle classi estreme; gli errori si
+concentrano ancora sulla transizione, che è la categoria più ambigua.
+
+```{r fig-lda, out.width="72%", fig.cap="Spazio discriminante LDA (training set). LD1 separa le regioni meno sviluppate da quelle piu sviluppate; LD2 differenzia la classe di transizione.", fig.height=3.0}
 knitr::include_graphics("figures/lda_space.png")
 ```
 
+**Lettura del grafico.** Nel piano LDA le regioni meno sviluppate e più
+sviluppate occupano zone abbastanza distinte; le regioni in transizione stanno
+più al centro. Questo aiuta a capire perché un modello più flessibile come QDA
+può migliorare il risultato finale.
+
 # Conclusioni
 
-Con LDA si raggiunge un'accuratezza dell'**`r round(max(comp$Accuratezza)*100,1)`%**
-nel classificare le regioni NUTS-2 per categoria di sviluppo UE usando solo
-indicatori strutturali diversi dal livello di PIL pro capite. Il risultato principale è che la separazione
-tra classi è approssimativamente lineare: disoccupazione, istruzione e
-digitalizzazione congiuntamente definiscono un profilo regionale coerente con
-la categoria di sviluppo assegnata dall'UE. La classe *transizione* rimane
-la più difficile da classificare (confusa con entrambe le adiacenti), mentre
-le regioni *meno sviluppate* sono identificate quasi perfettamente — segnale
-che il divario strutturale dell'Europa orientale è profondo e multidimensionale.
+In sintesi:
 
-**Implicazioni.** Il modello potrebbe monitorare la *convergenza reale*:
-una regione che migliora coerentemente in tutti gli indicatori strutturali
-si avvicina alla categoria superiore anche senza che il PIL venga misurato
-in tempo reale. **Limitazioni.** Il campione è contenuto (`r nrow(all_data)`
-regioni), perché l'unità statistica NUTS-2 e la disponibilità congiunta degli
-indicatori riducono il numero di casi utilizzabili. Per questo i risultati
-vanno letti come evidenza predittiva esplorativa, non come modello definitivo
-di politica economica. Inoltre, il campione esclude le regioni con dati
-mancanti (principalmente piccole isole) e l'analisi è cross-sezionale (2021),
-quindi non cattura la dinamica temporale della convergenza.
+- **Risultato principale:** QDA raggiunge un'accuratezza
+  dell'**`r round(max(comp$Accuratezza)*100,1)`%** (`r best_correct`/`r test_n`)
+  usando indicatori diversi dal PIL pro capite.
+- **Lettura dell'accuratezza:** il valore è buono rispetto al baseline
+  (`r round(baseline_acc*100,1)`%), ma va interpretato come risultato
+  esplorativo perché il test set contiene solo `r test_n` regioni.
+- **Classe critica:** la categoria *transizione* è la più difficile, perché
+  condivide caratteristiche con entrambe le classi adiacenti.
+- **Implicazione:** il modello può essere letto come indicazione esplorativa
+  della convergenza reale tra regioni.
+- **Limiti:** il campione è contenuto (`r nrow(all_data)` regioni), esclude
+  aree con dati mancanti e fotografa un solo anno, il 2021.

@@ -8,7 +8,7 @@ class used in EU cohesion policy from socioeconomic indicators other than GDP.
 
 ## Data
 
-The data are downloaded from Eurostat through the `eurostat` R package.
+The data are accessed from Eurostat through the `eurostat` R package.
 
 Datasets used:
 
@@ -18,7 +18,7 @@ Datasets used:
 | `tgs00010` | unemployment rate | predictor |
 | `tgs00109` | tertiary education | predictor |
 | `tgs00042` | R&D expenditure as percentage of GDP | predictor |
-| `tgs00059` | high-tech employment indicator | predictor |
+| `tgs00039` | high-tech employment as percentage of total employment | predictor |
 | `isoc_r_broad_h` | household broadband access | predictor |
 
 The response variable has three classes:
@@ -53,11 +53,11 @@ final comparison.
 
 | Model | Accuracy | Macro sensitivity | Macro specificity |
 |---|---:|---:|---:|
-| KNN | 0.667 | 0.659 | 0.829 |
-| LDA | 0.821 | 0.814 | 0.907 |
-| QDA | 0.744 | 0.738 | 0.866 |
+| KNN | 0.641 | 0.636 | 0.814 |
+| LDA | 0.692 | 0.689 | 0.847 |
+| QDA | 0.769 | 0.766 | 0.880 |
 
-LDA gives the best test accuracy. The transition class is the most difficult to
+QDA gives the best test accuracy. The transition class is the most difficult to
 classify, while less developed regions are identified more clearly.
 
 ## Repository Structure
