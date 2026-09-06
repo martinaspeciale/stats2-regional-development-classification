@@ -1,5 +1,6 @@
 # 01_load_data.R
 # Dati Eurostat sulle regioni NUTS-2, anno 2021.
+# 2021 resta l'anno più recente con tutti gli indicatori scelti disponibili.
 # Classe di sviluppo costruita dal PIL pro capite in PPS:
 #   - meno_sviluppata: PIL < 75% della media UE
 #   - transizione: tra 75% e 100%
@@ -21,14 +22,14 @@ dir.create("output", showWarnings = FALSE)
 # Ogni codice rimanda a una tabella precisa sul sito Eurostat.
 eurostat_sources <- data.frame(
   code = c("tgs00006", "tgs00010", "tgs00109",
-           "tgs00042", "tgs00059", "isoc_r_broad_h"),
+           "tgs00042", "tgs00039", "isoc_r_broad_h"),
   variable = c("gdp_pps_pct", "unemp_rate", "educ_tertiary",
                "rnd_gdp_pct", "hitech_emp_pct", "broadband_pct"),
   meaning = c("PIL pro capite in PPS, percentuale della media UE",
               "tasso di disoccupazione",
               "popolazione 25-64 con istruzione terziaria",
               "spesa in ricerca e sviluppo in percentuale del PIL",
-              "occupazione nei settori high-tech",
+              "occupazione nei settori high-tech, percentuale degli occupati",
               "famiglie con accesso a banda larga"),
   role = c("costruzione della classe", rep("predittore", 5))
 )
@@ -52,6 +53,7 @@ eu_countries <- c(
   SE = "Svezia", SI = "Slovenia", SK = "Slovacchia"
 )
 
+# fetch per gli indicatori predittori
 fetch <- function(code, value_col, year = analysis_year) {
   message("Fetching ", code, "...")
   df <- tryCatch(
@@ -125,10 +127,10 @@ regions <- regions %>%
 # unemp_rate      = tasso di disoccupazione
 # educ_tertiary   = istruzione terziaria nella popolazione adulta
 # rnd_gdp_pct     = spesa in R&S in percentuale del PIL
-# hitech_emp_pct  = occupazione high-tech
+# hitech_emp_pct  = occupazione high-tech sul totale degli occupati
 # broadband_pct   = famiglie con accesso a banda larga
 #
-# PIL escluso dai dati finali: sarebbe una scorciatoia troppo diretta.
+# PIL escluso dai dati finali 
 predictors <- c("unemp_rate","educ_tertiary","rnd_gdp_pct","hitech_emp_pct","broadband_pct")
 aq <- regions %>% select(geo, country, region, dev_class, all_of(predictors))
 
