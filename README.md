@@ -60,28 +60,12 @@ final comparison.
 QDA gives the best test accuracy. The transition class is the most difficult to
 classify, while less developed regions are identified more clearly.
 
-## Repository Structure
-
-```text
-.
-├── R/
-│   ├── 01_load_data.R
-│   ├── 02_eda.R
-│   ├── 03_modeling.R
-│   └── 04_evaluation.R
-├── data/
-├── figures/
-├── output/
-├── report.Rmd
-└── report.pdf
-```
-
 ## Reproducing the Report
 
 From the repository root:
 
-```r
-rmarkdown::render("report.Rmd")
+```bash
+Rscript -e "rmarkdown::render('report.Rmd', quiet = TRUE)"
 ```
 
 The scripts in `R/` can also be run in order to rebuild the dataset, figures
